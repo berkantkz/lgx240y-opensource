@@ -65,14 +65,10 @@ struct gmidi_in_port {
 	uint8_t data[2];
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 struct midi_alsa_config {
 	int	card;
 	int	device;
 };
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 struct f_midi {
 	struct usb_function	func;
@@ -94,11 +90,6 @@ struct f_midi {
 	unsigned int buflen, qlen;
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct f_midi _midi;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 static inline struct f_midi *func_to_midi(struct usb_function *f)
 {
 	return container_of(f, struct f_midi, func);
@@ -111,13 +102,7 @@ DECLARE_USB_MIDI_OUT_JACK_DESCRIPTOR(1);
 DECLARE_USB_MS_ENDPOINT_DESCRIPTOR(16);
 
 /* B.3.1  Standard AC Interface Descriptor */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct usb_interface_descriptor midi_ac_interface_desc /* __initdata */ = {
-#else
-static struct usb_interface_descriptor ac_interface_desc __initdata = {
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+static struct usb_interface_descriptor ac_interface_desc /* __initdata */ = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
 	.bDescriptorType =	USB_DT_INTERFACE,
 	/* .bInterfaceNumber =	DYNAMIC */
@@ -128,13 +113,7 @@ static struct usb_interface_descriptor ac_interface_desc __initdata = {
 };
 
 /* B.3.2  Class-Specific AC Interface Descriptor */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct uac1_ac_header_descriptor_1 midi_ac_header_desc /* __initdata */ = {
-#else
-static struct uac1_ac_header_descriptor_1 ac_header_desc __initdata = {
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+static struct uac1_ac_header_descriptor_1 ac_header_desc /* __initdata */ = {
 	.bLength =		UAC_DT_AC_HEADER_SIZE(1),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubtype =	USB_MS_HEADER,
@@ -145,13 +124,7 @@ static struct uac1_ac_header_descriptor_1 ac_header_desc __initdata = {
 };
 
 /* B.4.1  Standard MS Interface Descriptor */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 static struct usb_interface_descriptor ms_interface_desc /* __initdata */ = {
-#else
-static struct usb_interface_descriptor ms_interface_desc __initdata = {
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	.bLength =		USB_DT_INTERFACE_SIZE,
 	.bDescriptorType =	USB_DT_INTERFACE,
 	/* .bInterfaceNumber =	DYNAMIC */
@@ -162,13 +135,7 @@ static struct usb_interface_descriptor ms_interface_desc __initdata = {
 };
 
 /* B.4.2  Class-Specific MS Interface Descriptor */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 static struct usb_ms_header_descriptor ms_header_desc /* __initdata */ = {
-#else
-static struct usb_ms_header_descriptor ms_header_desc __initdata = {
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	.bLength =		USB_DT_MS_HEADER_SIZE,
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubtype =	USB_MS_HEADER,
@@ -229,25 +196,12 @@ static struct usb_gadget_strings *midi_strings[] = {
 	NULL,
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct usb_request *midi_alloc_ep_req(struct usb_ep *ep, unsigned length)
-#else
 static struct usb_request *alloc_ep_req(struct usb_ep *ep, unsigned length)
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 {
 	struct usb_request *req;
 
 	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
 	if (req) {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		if (length % ep->desc->wMaxPacketSize) {
-			length = ep->desc->wMaxPacketSize;
-		}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		req->length = length;
 		req->buf = kmalloc(length, GFP_ATOMIC);
 		if (!req->buf) {
@@ -258,13 +212,7 @@ static struct usb_request *alloc_ep_req(struct usb_ep *ep, unsigned length)
 	return req;
 }
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static void midi_free_ep_req(struct usb_ep *ep, struct usb_request *req)
-#else
 static void free_ep_req(struct usb_ep *ep, struct usb_request *req)
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 {
 	kfree(req->buf);
 	usb_ep_free_request(ep, req);
@@ -335,13 +283,7 @@ f_midi_complete(struct usb_ep *ep, struct usb_request *req)
 		if (ep == midi->out_ep)
 			f_midi_handle_out_data(ep, req);
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		midi_free_ep_req(ep, req);
-#else
 		free_ep_req(ep, req);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		return;
 
 	case -EOVERFLOW:	/* buffer overrun on read means that
@@ -428,13 +370,7 @@ static int f_midi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* allocate a bunch of read buffers and queue them all at once. */
 	for (i = 0; i < midi->qlen && err == 0; i++) {
 		struct usb_request *req =
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-			midi_alloc_ep_req(midi->out_ep, midi->buflen);
-#else
 			alloc_ep_req(midi->out_ep, midi->buflen);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		if (req == NULL)
 			return -ENOMEM;
 
@@ -469,11 +405,7 @@ static void f_midi_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_composite_dev *cdev = f->config->cdev;
 	struct f_midi *midi = func_to_midi(f);
 	struct snd_card *card;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	int i;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 	DBG(cdev, "unbind\n");
 
 	/* just to be sure */
@@ -482,34 +414,13 @@ static void f_midi_unbind(struct usb_configuration *c, struct usb_function *f)
 	card = midi->card;
 	midi->card = NULL;
 	if (card)
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 		snd_card_free_when_closed(card);
-#else
-		snd_card_free(card);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	kfree(midi->id);
 	midi->id = NULL;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	if (midi->out_ep)
-		midi->out_ep->driver_data = NULL;
-	if (midi->in_ep)
-		midi->in_ep->driver_data = NULL;
-	for (i = 0; i < midi->in_ports; ++i) {
-		kfree(midi->in_port[i]);
-		midi->in_port[i] = NULL;
-	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 	usb_free_all_descriptors(f);
-// + LGE USB patch. By Ted Li. 2016-09-20 
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	kfree(midi);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static int f_midi_snd_free(struct snd_device *device)
@@ -640,13 +551,7 @@ static void f_midi_transmit(struct f_midi *midi, struct usb_request *req)
 		return;
 
 	if (!req)
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		req = midi_alloc_ep_req(ep, midi->buflen);
-#else
 		req = alloc_ep_req(ep, midi->buflen);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	if (!req) {
 		ERROR(midi, "gmidi_transmit: alloc_ep_request failed\n");
@@ -675,13 +580,7 @@ static void f_midi_transmit(struct f_midi *midi, struct usb_request *req)
 	if (req->length > 0)
 		usb_ep_queue(ep, req, GFP_ATOMIC);
 	else
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		midi_free_ep_req(ep, req);
-#else
 		free_ep_req(ep, req);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static void f_midi_in_tasklet(unsigned long data)
@@ -778,14 +677,8 @@ static int f_midi_register_card(struct f_midi *midi)
 		.dev_free = f_midi_snd_free,
 	};
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	err = snd_card_new(&midi->gadget->dev, midi->index, midi->id, THIS_MODULE, 0, &card);
-#else
 	err = snd_card_new(&midi->gadget->dev, midi->index, midi->id,
 			THIS_MODULE, 0, &card);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	if (err < 0) {
 		ERROR(midi, "snd_card_new() failed\n");
 		goto fail;
@@ -846,15 +739,8 @@ fail:
 
 /* MIDI function driver setup/binding */
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 static int /* __init */
 f_midi_bind(struct usb_configuration *c, struct usb_function *f)
-#else
-static int __init
-f_midi_bind(struct usb_configuration *c, struct usb_function *f)
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 {
 	struct usb_descriptor_header **midi_function;
 	struct usb_midi_in_jack_descriptor jack_in_ext_desc[MAX_PORTS];
@@ -877,25 +763,13 @@ f_midi_bind(struct usb_configuration *c, struct usb_function *f)
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	midi_ac_interface_desc.bInterfaceNumber = status;
-#else
 	ac_interface_desc.bInterfaceNumber = status;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
 	ms_interface_desc.bInterfaceNumber = status;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	midi_ac_header_desc.baInterfaceNr[0] = status;
-#else
 	ac_header_desc.baInterfaceNr[0] = status;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	status = -ENODEV;
 
@@ -925,15 +799,8 @@ f_midi_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 
 	/* add the headers - these are always the same */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	midi_function[i++] = (struct usb_descriptor_header *) &midi_ac_interface_desc;
-	midi_function[i++] = (struct usb_descriptor_header *) &midi_ac_header_desc;
-#else
 	midi_function[i++] = (struct usb_descriptor_header *) &ac_interface_desc;
 	midi_function[i++] = (struct usb_descriptor_header *) &ac_header_desc;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	midi_function[i++] = (struct usb_descriptor_header *) &ms_interface_desc;
 
 	/* calculate the header's wTotalLength */
@@ -1062,53 +929,33 @@ fail:
  *
  * Returns zero on success, else negative errno.
  */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 int /* __init */ f_midi_bind_config(struct usb_configuration *c,
 			      int index, char *id,
 			      unsigned int in_ports,
 			      unsigned int out_ports,
 			      unsigned int buflen,
 			      unsigned int qlen,
-			      struct midi_alsa_config *config)
-#else
-int __init f_midi_bind_config(struct usb_configuration *c,
-			      int index, char *id,
-			      unsigned int in_ports,
-			      unsigned int out_ports,
-			      unsigned int buflen,
-			      unsigned int qlen)
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+			      struct midi_alsa_config* config)
 {
 	struct f_midi *midi;
 	int status, i;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 	if (config) {
 		config->card = -1;
 		config->device = -1;
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/* sanity check */
 	if (in_ports > MAX_PORTS || out_ports > MAX_PORTS)
 		return -EINVAL;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	midi = &_midi;
-#else
 	/* allocate and initialize one new instance */
 	midi = kzalloc(sizeof *midi, GFP_KERNEL);
 	if (!midi) {
 		status = -ENOMEM;
 		goto fail;
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 	for (i = 0; i < in_ports; i++) {
 		struct gmidi_in_port *port = kzalloc(sizeof(*port), GFP_KERNEL);
 		if (!port) {
@@ -1126,14 +973,10 @@ int __init f_midi_bind_config(struct usb_configuration *c,
 	tasklet_init(&midi->tasklet, f_midi_in_tasklet, (unsigned long) midi);
 
 	/* set up ALSA midi devices */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
 	midi->id = kstrdup(id, GFP_KERNEL);
 	midi->index = index;
 	midi->buflen = buflen;
 	midi->qlen = qlen;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	midi->in_ports = in_ports;
 	midi->out_ports = out_ports;
 	status = f_midi_register_card(midi);
@@ -1147,39 +990,24 @@ int __init f_midi_bind_config(struct usb_configuration *c,
 	midi->func.set_alt     = f_midi_set_alt;
 	midi->func.disable     = f_midi_disable;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
-	midi->id = kstrdup(id, GFP_KERNEL);
-	midi->index = index;
-	midi->buflen = buflen;
-	midi->qlen = qlen;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
-
 	status = usb_add_function(c, &midi->func);
 	if (status)
 		goto setup_fail;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
+
 	if (config) {
 		config->card = midi->rmidi->card->number;
 		config->device = midi->rmidi->device;
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	return 0;
 
 setup_fail:
 	for (--i; i >= 0; i--)
 		kfree(midi->in_port[i]);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	kfree(midi);
 fail:
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	return status;
 }
+
 

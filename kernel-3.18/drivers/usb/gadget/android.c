@@ -56,11 +56,7 @@
 #include "f_eem.c"
 #include "u_ether.c"
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-#include "f_charge_only.c"
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 #ifdef CONFIG_MTK_C2K_SUPPORT
 #include "viatel_rawbulk.h"
 int rawbulk_bind_config(struct usb_configuration *c, int transfer_id);
@@ -80,19 +76,10 @@ static const char longname[] = "Gadget Android";
 #define PRODUCT_ID		0x0001
 
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
-// + build error. By Ted Li
-#if 1
-#include <mt-plat/mt_boot_common.h>
-#define KPOC_USB_FUNC "mtp"
-#define KPOC_USB_VENDOR_ID 0x1004
-#define KPOC_USB_PRODUCT_ID 0x633E
-#else
 #include <mt-plat/mt_boot_common.h>
 #define KPOC_USB_FUNC "mtp"
 #define KPOC_USB_VENDOR_ID 0x0E8D
 #define KPOC_USB_PRODUCT_ID 0x2008
-#endif
-// - build error. By Ted Li
 #endif
 
 /* f_midi configuration */
@@ -102,39 +89,23 @@ static const char longname[] = "Gadget Android";
 #define MIDI_QUEUE_LENGTH   32
 
 /* Default manufacturer and product string , overridden by userspace */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 #define MANUFACTURER_STRING "MediaTek"
 #define PRODUCT_STRING "MT65xx Android Phone"
-#else
-#define MANUFACTURER_STRING "LGE"
-#define PRODUCT_STRING "LGE Android Phone"
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 
 //#define USB_LOG "USB"
 
 struct android_usb_function {
 	char *name;
 	void *config;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* set only when function's bind_config() is called. */
-	bool bound;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	struct device *dev;
 	char *dev_name;
 	struct device_attribute **attributes;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *android_dev;
-#else
+
 	/* for android_dev.enabled_functions */
 	struct list_head enabled_list;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 	/* Optional: initialization during gadget bind */
 	int (*init)(struct android_usb_function *, struct usb_composite_dev *);
 	/* Optional: cleanup during gadget unbind */
@@ -157,28 +128,9 @@ struct android_usb_function {
 					const struct usb_ctrlrequest *);
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-struct android_usb_function_holder {
-
-	struct android_usb_function *f;
-
-	/* for android_conf.enabled_functions */
-	struct list_head enabled_list;
-};
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
-
 struct android_dev {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	const char *name;
-#endif
 	struct android_usb_function **functions;
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	struct list_head enabled_functions;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct usb_composite_dev *cdev;
 	struct device *dev;
 
@@ -193,58 +145,13 @@ struct android_dev {
 	struct work_struct work;
 	char ffs_aliases[256];
 	int rezero_cmd;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	int lock;
-#endif
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* A list of struct android_configuration */
-	struct list_head configs;
-	int configs_num;
-
-	/* A list node inside the android_dev_list */
-	struct list_head list_item;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-struct android_configuration {
-	struct usb_configuration usb_config;
-
-	/* A list of the functions supported by this config */
-	struct list_head enabled_functions;
-
-	/* A list node inside the struct android_dev.configs list */
-	struct list_head list_item;
-};
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 static struct class *android_class;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 static struct android_dev *_android_dev;
-#endif
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct list_head android_dev_list;
-static int android_dev_count;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 static int android_bind_config(struct usb_configuration *c);
 static void android_unbind_config(struct usb_configuration *c);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 static int android_setup_config(struct usb_configuration *c, const struct usb_ctrlrequest *ctrl);
-#endif
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static struct android_dev *cdev_to_android_dev(struct usb_composite_dev *cdev);
-static struct android_configuration *alloc_android_config
-						(struct android_dev *dev);
-static void free_android_config(struct android_dev *dev,
-				struct android_configuration *conf);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 /* string IDs are assigned dynamically */
 #define STRING_MANUFACTURER_IDX		0
@@ -255,22 +162,11 @@ static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-#define CHARGE_ONLY_STRING_IDX		3
-static char charge_only_string[256];
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 /* String Table */
 static struct usb_string strings_dev[] = {
 	[STRING_MANUFACTURER_IDX].s = manufacturer_string,
 	[STRING_PRODUCT_IDX].s = product_string,
 	[STRING_SERIAL_IDX].s = serial_string,
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	[CHARGE_ONLY_STRING_IDX].s = charge_only_string,
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	{  }			/* end of list */
 };
 
@@ -298,8 +194,7 @@ static struct usb_device_descriptor device_desc = {
 	.bcdDevice            = __constant_cpu_to_le16(0xffff),
 	.bNumConfigurations   = 1,
 };
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
+
 static struct usb_configuration android_config_driver = {
 	.label		= "android",
 	.unbind		= android_unbind_config,
@@ -318,8 +213,6 @@ static struct usb_configuration android_config_driver = {
 	.MaxPower	= 500, /* 500ma */
 #endif
 };
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 static void android_work(struct work_struct *data)
 {
@@ -401,27 +294,13 @@ static void android_work(struct work_struct *data)
 static void android_enable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_configuration *conf;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	if (WARN_ON(!dev->disable_depth))
 		return;
 
 	if (--dev->disable_depth == 0) {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		list_for_each_entry(conf, &dev->configs, list_item) {
-				usb_add_config(cdev, &conf->usb_config,
-					android_bind_config);
-		}
-#else
 		usb_add_config(cdev, &android_config_driver,
 					android_bind_config);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		usb_gadget_connect(cdev->gadget);
 	}
 }
@@ -429,24 +308,12 @@ static void android_enable(struct android_dev *dev)
 static void android_disable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_configuration *conf;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	if (dev->disable_depth++ == 0) {
 		usb_gadget_disconnect(cdev->gadget);
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		list_for_each_entry(conf, &dev->configs, list_item)
-			usb_remove_config(cdev, &conf->usb_config);
-#else
 		usb_remove_config(cdev, &android_config_driver);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	}
 }
 
@@ -456,11 +323,6 @@ struct functionfs_config {
 	bool opened;
 	bool enabled;
 	struct ffs_data *data;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 };
 
 static int ffs_function_init(struct android_usb_function *f,
@@ -481,21 +343,9 @@ static void ffs_function_cleanup(struct android_usb_function *f)
 
 static void ffs_function_enable(struct android_usb_function *f)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = f->android_dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct functionfs_config *config = f->config;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-	if (config->enabled)
-		return;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	config->enabled = true;
 
 	/* Disable the gadget until the function is ready */
@@ -505,21 +355,9 @@ static void ffs_function_enable(struct android_usb_function *f)
 
 static void ffs_function_disable(struct android_usb_function *f)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = f->android_dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct functionfs_config *config = f->config;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-	if (!config->enabled)
-		return;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	config->enabled = false;
 
 	/* Balance the disable that was called in closed_callback */
@@ -537,20 +375,8 @@ static int ffs_function_bind_config(struct android_usb_function *f,
 static ssize_t
 ffs_aliases_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int ret;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	dev = list_first_entry(&android_dev_list, struct android_dev,
-					list_item);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	mutex_lock(&dev->mutex);
 	ret = sprintf(buf, "%s\n", dev->ffs_aliases);
@@ -563,21 +389,9 @@ static ssize_t
 ffs_aliases_store(struct device *pdev, struct device_attribute *attr,
 					const char *buf, size_t size)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	char buff[256];
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	dev = list_first_entry(&android_dev_list, struct android_dev,
-					list_item);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	mutex_lock(&dev->mutex);
 
 	if (dev->enabled) {
@@ -612,43 +426,10 @@ static struct android_usb_function ffs_function = {
 
 static int functionfs_ready_callback(struct ffs_data *ffs)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = ffs_function.android_dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct functionfs_config *config = ffs_function.config;
 	int ret = 0;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	if (dev) {
-	mutex_lock(&dev->mutex);
-
-	ret = functionfs_bind(ffs, dev->cdev);
-		if (ret) {
-			mutex_unlock(&dev->mutex);
-			return ret;
-		}
-	} else {
-		/* android ffs_func requires daemon to start only after enable*/
-		pr_debug("start adbd only in ADB composition\n");
-		return -ENODEV;
-	}
-	config->data = ffs;
-	config->opened = true;
-	/* Save dev in case the adb function will get disabled */
-	config->dev = dev;
-
-	if (config->enabled)
-		android_enable(dev);
-
-	mutex_unlock(&dev->mutex);
-
-	return 0;
-#else
 	mutex_lock(&dev->mutex);
 
 	ret = functionfs_bind(ffs, dev->cdev);
@@ -664,50 +445,13 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 err:
 	mutex_unlock(&dev->mutex);
 	return ret;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static void functionfs_closed_callback(struct ffs_data *ffs)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = ffs_function.android_dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct functionfs_config *config = ffs_function.config;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/*
-	 * In case new composition is without ADB or ADB got disabled by the
-	 * time ffs_daemon was stopped then use saved one
-	 */
-	if (!dev)
-		dev = config->dev;
-
-	/* fatal-error: It should never happen */
-	if (!dev)
-		pr_err("adb_closed_callback: config->dev is NULL");
-
-	if (dev)
-		mutex_lock(&dev->mutex);
-
-	if (config->enabled && dev)
-		android_disable(dev);
-
-	config->dev = NULL;
-
-	config->opened = false;
-	config->data = NULL;
-
-	functionfs_unbind(ffs);
-
-	if (dev)
-	mutex_unlock(&dev->mutex);
-#else
 	mutex_lock(&dev->mutex);
 
 	if (config->enabled)
@@ -719,8 +463,6 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	functionfs_unbind(ffs);
 
 	mutex_unlock(&dev->mutex);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static void *functionfs_acquire_dev_callback(const char *dev_name)
@@ -768,13 +510,6 @@ static void adb_android_function_enable(struct android_usb_function *f)
 	struct android_dev *dev = _android_dev;
 	struct adb_data *data = f->config;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-	if (data->enabled)
-		return;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
-
 	data->enabled = true;
 
 	/* Disable the gadget until adbd is ready */
@@ -790,18 +525,12 @@ static void adb_android_function_disable(struct android_usb_function *f)
 	struct android_dev *dev = _android_dev;
 	struct adb_data *data = f->config;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-	if (!data->enabled)
-		return;
-#endif
 	data->enabled = false;
 
 	/* Balance the disable that was called in closed_callback */
 	if (!data->opened)
 		android_enable(dev);
 #endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static struct android_usb_function adb_function = {
@@ -1043,13 +772,6 @@ static ssize_t acm_port_index_store(struct device *dev,
 	/* Set all port_index as 0*/
 	for (tmp = 0; tmp < MAX_ACM_INSTANCES; tmp ++)
 		config->port_index[tmp] = 0;
-
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* Set instances as 0*/
-	config->instances = 0;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	for (tmp = 0; tmp < num; tmp++) {
 		int port = (val[tmp] > MAX_ACM_INSTANCES || val[tmp] < 1) ? 0 : val[tmp]-1;
@@ -1324,40 +1046,17 @@ static int mtp_function_ctrlrequest(struct android_usb_function *f,
 					const struct usb_ctrlrequest *c)
 {
 	/* MTP MSFT OS Descriptor */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev		*dev = f->android_dev;
-	struct android_usb_function_holder *f_holder;
-	struct android_configuration *conf;
-#else
 	struct android_dev		*dev = _android_dev;
 	struct android_usb_function	*f_count;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int	   functions_no=0;
 	char   usb_function_string[32];
 	char * buff = usb_function_string;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	list_for_each_entry(conf, &dev->configs, list_item) {
-		if (buff != usb_function_string)
-			*(buff-1) = ':';
-		list_for_each_entry(f_holder, &conf->enabled_functions,
-					enabled_list) {
-			functions_no++;
-			buff += snprintf(buff, PAGE_SIZE, "%s,",
-					f_holder->f->name);
-		}
-	}
-#else
 	list_for_each_entry(f_count, &dev->enabled_functions, enabled_list)
 	{
 		functions_no++;
 		buff += sprintf(buff, "%s,", f_count->name);
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	*(buff-1) = '\n';
 
 	mtp_read_usb_functions(functions_no, usb_function_string);
@@ -1415,45 +1114,18 @@ ecm_function_bind_config(struct android_usb_function *f,
 	int ret;
 	struct eth_dev *dev;
 	struct ecm_function_config *ecm = f->config;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-    int i, len;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	if (!ecm) {
 		pr_err("%s: ecm_pdata\n", __func__);
 		return -1;
 	}
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-   /*
-    * generate ethadd by serial_string
-    */
-    memset(ecm->ethaddr, 0, ETH_ALEN);
-    ecm->ethaddr[0] = 0x02;
-    len = strlen(serial_string);
-    for (i = 0; i < len; i++) {
-        ecm->ethaddr[i % (ETH_ALEN - 1) + 1] ^= serial_string[i];
-    }
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		ecm->ethaddr[0], ecm->ethaddr[1], ecm->ethaddr[2],
 		ecm->ethaddr[3], ecm->ethaddr[4], ecm->ethaddr[5]);
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	if (ecm->ethaddr[0])
-		dev = gether_setup_name(c->cdev->gadget, NULL, "usb");
-	else
-		dev = gether_setup_name(c->cdev->gadget, ecm->ethaddr, "usb");
-#else
 	dev = gether_setup_name(c->cdev->gadget, ecm->ethaddr, "rndis");
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
 		pr_err("%s: gether_setup failed\n", __func__);
@@ -1461,18 +1133,7 @@ ecm_function_bind_config(struct android_usb_function *f,
 	}
 	ecm->dev = dev;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	ret = ecm_bind_config(c, ecm->ethaddr, dev);
-	if (ret) {
-		pr_err("%s: ecm_bind_config failed\n", __func__);
-		gether_cleanup(dev);
-	}
-	return ret;
-#else
 	return ecm_bind_config(c, ecm->ethaddr, ecm->dev);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
 static void ecm_function_unbind_config(struct android_usb_function *f,
@@ -1667,17 +1328,7 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	if (rndis->ethaddr[0])
-		dev = gether_setup_name(c->cdev->gadget, NULL, "rndis");
-	else
-		dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr,
-								"rndis");
-#else
 	dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
 		pr_err("%s: gether_setup failed\n", __func__);
@@ -1992,32 +1643,6 @@ static struct android_usb_function mass_storage_function = {
 	.attributes	= mass_storage_function_attributes,
 };
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-/* charge only mode */
-static int charge_only_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
-{
-	return charge_only_setup();
-}
-
-static void charge_only_function_cleanup(struct android_usb_function *f)
-{
-	charge_only_cleanup();
-}
-
-static int charge_only_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
-{
-	return charge_only_bind_config(c);
-}
-
-static struct android_usb_function charge_only_function = {
-	.name		= "charge_only",
-	.init		= charge_only_function_init,
-	.cleanup	= charge_only_function_cleanup,
-	.bind_config	= charge_only_function_bind_config,
-};
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 static int accessory_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
@@ -2262,11 +1887,6 @@ static struct android_usb_function *supported_functions[] = {
 	&serial_function,
 	&rndis_function,
 	&mass_storage_function,
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	&charge_only_function,
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	&accessory_function,
 	&audio_source_function,
 #ifdef CONFIG_SND_RAWMIDI
@@ -2290,13 +1910,7 @@ static struct android_usb_function *supported_functions[] = {
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(cdev);
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct android_usb_function *f;
 	struct device_attribute **attrs;
 	struct device_attribute *attr;
@@ -2313,22 +1927,12 @@ static int android_init_functions(struct android_usb_function **functions,
 		/* Added for USB Develpment debug, more log for more debuging help */
 		pr_notice("[USB]%s: f->dev_name = %s, f->name = %s\n", __func__, f->dev_name, f->name);
 		/* Added for USB Develpment debug, more log for more debuging help */
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		f->android_dev = NULL;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		f->dev = device_create(android_class, dev->dev,
 				MKDEV(0, index), f, f->dev_name);
 		if (IS_ERR(f->dev)) {
 			pr_err("%s: Failed to create dev %s", __func__,
 							f->dev_name);
 			err = PTR_ERR(f->dev);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-			f->dev = NULL;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 			goto err_create;
 		}
 
@@ -2384,45 +1988,13 @@ static int
 android_bind_enabled_functions(struct android_dev *dev,
 			       struct usb_configuration *c)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_usb_function_holder *f_holder;
-	struct android_configuration *conf =
-		container_of(c, struct android_configuration, usb_config);
-#else
 	struct android_usb_function *f;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int ret;
 
 	/* Added for USB Develpment debug, more log for more debuging help */
 	pr_notice("[USB]%s: ", __func__);
 	/* Added for USB Develpment debug, more log for more debuging help */
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
-		pr_notice("[USB]bind_config function '%s'/%p\n", f_holder->f->name, f_holder->f);
-		ret = f_holder->f->bind_config(f_holder->f, c);
-		if (ret) {
-			pr_err("%s: %s failed\n", __func__, f_holder->f->name);
-			while (!list_empty(&c->functions)) {
-				struct usb_function		*f;
-
-				f = list_first_entry(&c->functions,
-					struct usb_function, list);
-				if (f->config) {
-					list_del(&f->list);
-					if (f->unbind)
-						f->unbind(c, f);
-				}
-			}
-			if (c->unbind)
-				c->unbind(c);
-			return ret;
-		}
-		f_holder->f->bound = true;
-#else
 	list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 		pr_notice("[USB]bind_config function '%s'/%p\n", f->name, f);
 		ret = f->bind_config(f, c);
@@ -2430,8 +2002,6 @@ android_bind_enabled_functions(struct android_dev *dev,
 			pr_err("%s: %s failed", __func__, f->name);
 			return ret;
 		}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	}
 	return 0;
 }
@@ -2440,19 +2010,6 @@ static void
 android_unbind_enabled_functions(struct android_dev *dev,
 			       struct usb_configuration *c)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_usb_function_holder *f_holder;
-	struct android_configuration *conf =
-		container_of(c, struct android_configuration, usb_config);
-
-	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
-		pr_notice("[USB]unbind_config function '%s'/%p\n", f_holder->f->name, f_holder->f);
-		if (f_holder->f->bound && f_holder->f->unbind_config)
-			f_holder->f->unbind_config(f_holder->f, c);
-		f_holder->f->bound = false;
-	}
-#else
 	struct android_usb_function *f;
 
 	list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
@@ -2460,59 +2017,21 @@ android_unbind_enabled_functions(struct android_dev *dev,
 		if (f->unbind_config)
 			f->unbind_config(f, c);
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static int android_enable_function(struct android_dev *dev,
-				   struct android_configuration *conf,
-				   char *name)
-#else
 static int android_enable_function(struct android_dev *dev, char *name)
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 {
 	struct android_usb_function **functions = dev->functions;
 	struct android_usb_function *f;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_usb_function_holder *f_holder;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	while ((f = *functions++)) {
 
 		/* Added for USB Develpment debug, more log for more debuging help */
 		pr_notice("[USB]%s: name = %s, f->name=%s \n", __func__, name, f->name);
 		/* Added for USB Develpment debug, more log for more debuging help */
 		if (!strcmp(name, f->name)) {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-			if (f->android_dev && f->android_dev != dev)
-				pr_err("%s is enabled in other device\n",
-					f->name);
-			else {
-				f_holder = kzalloc(sizeof(*f_holder),
-						GFP_KERNEL);
-				if (!f_holder) {
-					pr_err("Failed to alloc f_holder\n");
-					return -ENOMEM;
-				}
-
-				f->android_dev = dev;
-				f_holder->f = f;
-				list_add_tail(&f_holder->enabled_list,
-					      &conf->enabled_functions);
-				pr_notice("func:%s is enabled.\n", f->name);
-				return 0;
-			}
-#else
 			list_add_tail(&f->enabled_list,
 						&dev->enabled_functions);
 			return 0;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		}
 	}
 	return -EINVAL;
@@ -2525,14 +2044,7 @@ static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_configuration *conf;
-	struct android_usb_function_holder *f_holder;
-#else
 	struct android_usb_function *f;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	char *buff = buf;
 
 	/* Added for USB Develpment debug, more log for more debuging help */
@@ -2541,21 +2053,8 @@ functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 
 	mutex_lock(&dev->mutex);
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	list_for_each_entry(conf, &dev->configs, list_item) {
-		if (buff != buf)
-			*(buff-1) = ':';
-		list_for_each_entry(f_holder, &conf->enabled_functions,
-					enabled_list)
-			buff += snprintf(buff, PAGE_SIZE, "%s,",
-					f_holder->f->name);
-	}
-#else
 	list_for_each_entry(f, &dev->enabled_functions, enabled_list)
 		buff += sprintf(buff, "%s,", f->name);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	mutex_unlock(&dev->mutex);
 
@@ -2569,14 +2068,6 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 			       const char *buff, size_t size)
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct list_head *curr_conf = &dev->configs;
-	struct android_configuration *conf;
-	char *conf_str;
-	struct android_usb_function_holder *f_holder;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	char *name;
 	char buf[256], *b;
 	char aliases[256], *a;
@@ -2591,48 +2082,12 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 		return -EBUSY;
 	}
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	pr_notice("[USB]request function list: %s\n", buff);
-	/* Clear previous enabled list */
-	list_for_each_entry(conf, &dev->configs, list_item) {
-		while (conf->enabled_functions.next !=
-				&conf->enabled_functions) {
-			f_holder = list_entry(conf->enabled_functions.next,
-					typeof(*f_holder),
-					enabled_list);
-			f_holder->f->android_dev = NULL;
-			list_del(&f_holder->enabled_list);
-			kfree(f_holder);
-		}
-		INIT_LIST_HEAD(&conf->enabled_functions);
-	}
-#else
 	INIT_LIST_HEAD(&dev->enabled_functions);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
 	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT) {
-// + build error. By Ted Li
-#if 1
-		/* If the next not equal to the head, take it */
-		if (curr_conf->next != &dev->configs)
-			conf = list_entry(curr_conf->next,
-					  struct android_configuration,
-					  list_item);
-		else
-			conf = alloc_android_config(dev);
-#endif
-// - build error. By Ted Li
 		pr_notice("[USB]KPOC, func%s\n", KPOC_USB_FUNC);
-// + build error. By Ted Li
-#if 1
-		err = android_enable_function(dev, conf, KPOC_USB_FUNC);
-#else 
 		err = android_enable_function(dev, KPOC_USB_FUNC);
-#endif
-// - build error. By Ted Li
 		if (err)
 			pr_err("android_usb: Cannot enable '%s' (%d)",
 					KPOC_USB_FUNC, err);
@@ -2649,20 +2104,6 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 	b = strim(buf);
 
 	while (b) {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-		ffs_enabled = 0;
-#endif
-		conf_str = strsep(&b, ":");
-
-		if (!conf_str)
-			continue;
-
-		/* Added for USB Develpment debug, more log for more debuging help */
-		pr_notice("[USB]%s: name = %s \n", __func__, conf_str);
-		/* Added for USB Develpment debug, more log for more debuging help */
-#else
 		name = strsep(&b, ",");
 
 		/* Added for USB Develpment debug, more log for more debuging help */
@@ -2671,51 +2112,7 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 
 		if (!name)
 			continue;
-#endif
 
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		/* If the next not equal to the head, take it */
-		if (curr_conf->next != &dev->configs)
-			conf = list_entry(curr_conf->next,
-					  struct android_configuration,
-					  list_item);
-		else
-			conf = alloc_android_config(dev);
-
-		curr_conf = curr_conf->next;
-
-		while (conf_str) {
-			name = strsep(&conf_str, ",");
-			is_ffs = 0;
-			strlcpy(aliases, dev->ffs_aliases, sizeof(aliases));
-			a = aliases;
-
-			while (a) {
-				char *alias = strsep(&a, ",");
-				if (alias && !strcmp(name, alias)) {
-					is_ffs = 1;
-					break;
-				}
-			}
-
-			if (is_ffs) {
-				if (ffs_enabled)
-					continue;
-				err = android_enable_function(dev, conf, "ffs");
-				if (err)
-					pr_err("android_usb: Cannot enable ffs (%d)",
-										err);
-				else
-					ffs_enabled = 1;
-				continue;
-			}
-
-			err = android_enable_function(dev, conf, name);
-			if (err)
-				pr_err("android_usb: Cannot enable '%s' (%d)",
-							name, err);
-		}
-#else
 		is_ffs = 0;
 		strlcpy(aliases, dev->ffs_aliases, sizeof(aliases));
 		a = aliases;
@@ -2744,20 +2141,7 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 		if (err)
 			pr_err("android_usb: Cannot enable '%s' (%d)",
 							   name, err);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	}
-
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* Free uneeded configurations if exists */
-	while (curr_conf->next != &dev->configs) {
-		conf = list_entry(curr_conf->next,
-				  struct android_configuration, list_item);
-		free_android_config(dev, conf);
-	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	mutex_unlock(&dev->mutex);
 
@@ -2776,14 +2160,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
 	struct usb_composite_dev *cdev = dev->cdev;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_usb_function_holder *f_holder;
-	struct android_configuration *conf;
-#else
 	struct android_usb_function *f;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int enabled = 0;
 
 
@@ -2791,12 +2168,6 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		return -ENODEV;
 
 	mutex_lock(&dev->mutex);
-
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	dev_info(dev->dev, "gadget enable(%s)\n", buff);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/* Added for USB Develpment debug, more log for more debuging help */
 	pr_notice("[USB]%s: device_attr->attr.name: %s\n", __func__, attr->attr.name);
@@ -2836,34 +2207,14 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		if (serial_string[0] == 0x0) {
 			cdev->desc.iSerialNumber = 0;
 		} else {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-			cdev->desc.iSerialNumber =
-					strings_dev[STRING_SERIAL_IDX].id;
-			cdev->desc.iProduct =
-				strings_dev[STRING_PRODUCT_IDX].id;
-#else
 			cdev->desc.iSerialNumber = device_desc.iSerialNumber;
-#endif
-
 		}
-		
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f_holder, &conf->enabled_functions,
-						enabled_list) {
-				pr_notice("[USB]enable function '%s'/%p\n",f_holder->f->name, f_holder->f);
-				if (f_holder->f->enable)
-					f_holder->f->enable(f_holder->f);
-			}
-#else
+
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 			pr_notice("[USB]enable function '%s'/%p\n", f->name, f);
 			if (f->enable)
 				f->enable(f);
 		}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		android_enable(dev);
 		dev->enabled = true;
 
@@ -2878,24 +2229,12 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		/* Added for USB Develpment debug, more log for more debuging help */
 
 		android_disable(dev);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-		list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f_holder, &conf->enabled_functions,
-						enabled_list) {
-			pr_notice("[USB]disable function '%s'/%p\n", f_holder->f->name, f_holder->f);
-				if (f_holder->f->disable)
-					f_holder->f->disable(f_holder->f);
-			}
-#else
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 			pr_notice("[USB]disable function '%s'/%p\n", f->name, f);
 			if (f->disable) {
 				f->disable(f);
 			}
 		}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 		dev->enabled = false;
 	} else {
 		pr_err("android_usb: already %s\n",
@@ -2932,21 +2271,6 @@ static ssize_t state_show(struct device *pdev, struct device_attribute *attr,
 out:
 	return sprintf(buf, "%s\n", state);
 }
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-static ssize_t config_num_show(struct device *pdev, struct device_attribute *attr,
-		char *buf)
-{
-	struct android_dev *dev = dev_get_drvdata(pdev);
-	u8 config_num = 0;
-
-	if (dev->cdev->config)
-		config_num = dev->cdev->config->bConfigurationValue;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", config_num);
-}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 #define DESCRIPTOR_ATTR(field, format_string)				\
 static ssize_t								\
@@ -2998,21 +2322,11 @@ DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
 DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
 DESCRIPTOR_STRING_ATTR(iProduct, product_string)
 DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-DESCRIPTOR_ATTR(iSerialNumber, "%d\n")
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-static DEVICE_ATTR(config_num, S_IRUGO, config_num_show, NULL);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
@@ -3024,19 +2338,9 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_iManufacturer,
 	&dev_attr_iProduct,
 	&dev_attr_iSerial,
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	&dev_attr_iSerialNumber,
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_state,
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-	&dev_attr_config_num,
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	NULL
 };
 
@@ -3045,13 +2349,7 @@ static struct device_attribute *android_usb_attributes[] = {
 
 static int android_bind_config(struct usb_configuration *c)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(c->cdev);
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int ret = 0;
 
 	ret = android_bind_enabled_functions(dev, c);
@@ -3063,18 +2361,11 @@ static int android_bind_config(struct usb_configuration *c)
 
 static void android_unbind_config(struct usb_configuration *c)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(c->cdev);
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	android_unbind_enabled_functions(dev, c);
 }
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
+
 static int android_setup_config(struct usb_configuration *c, const struct usb_ctrlrequest *ctrl)
 {
 	int handled = -EINVAL;
@@ -3146,36 +2437,15 @@ static int android_setup_config(struct usb_configuration *c, const struct usb_ct
 
 	return handled;
 }
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 static int android_bind(struct usb_composite_dev *cdev)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev;
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct usb_gadget	*gadget = cdev->gadget;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	int			gcnum, id, ret;
-#else
 	int			id, ret;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* Bind to the last android_dev that was probed */
-	dev = list_entry(android_dev_list.prev, struct android_dev, list_item);
-	dev->cdev = cdev;
-#else
 	/* Save the default handler */
 	dev->setup_complete = cdev->req->complete;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/*
 	 * Start disconnected. Userspace will connect the gadget once
@@ -3183,20 +2453,9 @@ static int android_bind(struct usb_composite_dev *cdev)
 	 */
 	usb_gadget_disconnect(gadget);
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	/* Init the supported functions only once, on the first android_dev */
-	if (android_dev_count == 1) {
-		ret = android_init_functions(dev->functions, cdev);
-		if (ret)
-			return ret;
-	}
-#else
 	ret = android_init_functions(dev->functions, cdev);
 	if (ret)
 		return ret;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/* Allocate string descriptor numbers ... note that string
 	 * contents can be overridden by the composite_dev glue.
@@ -3224,53 +2483,20 @@ static int android_bind(struct usb_composite_dev *cdev)
 	strings_dev[STRING_SERIAL_IDX].id = id;
 	device_desc.iSerialNumber = id;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	id = usb_string_id(cdev);
-	if (id < 0)
-		return id;
-	strings_dev[CHARGE_ONLY_STRING_IDX].id = id;
-	strlcpy(charge_only_string, "USB Charge Only Interface",
-			sizeof(charge_only_string) - 1);
-#endif
-
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	gcnum = usb_gadget_controller_number(gadget);
-	if (gcnum >= 0)
-		device_desc.bcdDevice = cpu_to_le16(0x0200 + gcnum);
-	else {
-		pr_warning("%s: controller '%s' not recognized\n",
-			longname, gadget->name);
-		device_desc.bcdDevice = __constant_cpu_to_le16(0x9999);
-	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 #ifdef CONFIG_USBIF_COMPLIANCE
 	usb_gadget_clear_selfpowered(gadget);
 #else
 	usb_gadget_set_selfpowered(gadget);
 #endif
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	dev->cdev = cdev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	return 0;
 }
 
 static int android_usb_unbind(struct usb_composite_dev *cdev)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(cdev);
-	manufacturer_string[0] = '\0';
-	product_string[0] = '\0';
-	serial_string[0] = '0';
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
+
 	cancel_work_sync(&dev->work);
 	android_cleanup_functions(dev->functions);
 	return 0;
@@ -3283,80 +2509,23 @@ extern void composite_setup_complete(struct usb_ep *ep, struct usb_request *req)
 static int
 android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	struct android_dev		*dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(cdev);
-#else
-	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	struct usb_request		*req = cdev->req;
 	struct android_usb_function	*f;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_usb_function_holder *f_holder;
-	struct android_configuration	*conf;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	int value = -EOPNOTSUPP;
 	unsigned long flags;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	pr_notice("[USB]%s\n", __func__);
-#else
 	if (__ratelimit(&ratelimit))
 		pr_notice("[USB][ratelimit]%s,\n", __func__);
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	req->zero = 0;
 	req->complete = composite_setup_complete;
 	req->length = 0;
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifndef CONFIG_LGE_USB_G_ANDROID
 	req->complete = dev->setup_complete;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 	gadget->ep0->driver_data = cdev;
 
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	list_for_each_entry(conf, &dev->configs, list_item)
-		list_for_each_entry(f_holder,
-				    &conf->enabled_functions,
-				    enabled_list) {
-			f = f_holder->f;
-		if (f->ctrlrequest) {
-			value = f->ctrlrequest(f, cdev, c);
-#ifndef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-				if (value >= 0)
-					break;
-#else
-				if (value >= 0) {
-					if (!strcmp(f->name, "mtp"))
-						goto list_exit;
-					else
-						break;
-				}
-#endif
-			}
-		}
-#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
-list_exit:
-#endif
-#else
 	list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 		if (f->ctrlrequest) {
 			value = f->ctrlrequest(f, cdev, c);
@@ -3364,8 +2533,6 @@ list_exit:
 				break;
 		}
 	}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/* Special case the accessory function.
 	 * It needs to handle control requests before it is enabled.
@@ -3391,13 +2558,7 @@ list_exit:
 
 static void android_disconnect(struct usb_composite_dev *cdev)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = cdev_to_android_dev(cdev);
-#else
 	struct android_dev *dev = _android_dev;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 	/* Added for USB Develpment debug, more log for more debuging help */
 	pr_notice("[USB]%s: \n", __func__);
@@ -3453,65 +2614,6 @@ static int android_create_device(struct android_dev *dev)
 	}
 	return 0;
 }
-
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-static void android_destroy_device(struct android_dev *dev)
-{
-	struct device_attribute **attrs = android_usb_attributes;
-	struct device_attribute *attr;
-
-	while ((attr = *attrs++))
-		device_remove_file(dev->dev, attr);
-	device_destroy(android_class, dev->dev->devt);
-}
-
-static struct android_dev *cdev_to_android_dev(struct usb_composite_dev *cdev)
-{
-	struct android_dev *dev = NULL;
-
-	/* Find the android dev from the list */
-	list_for_each_entry(dev, &android_dev_list, list_item) {
-		if (dev->cdev == cdev)
-			break;
-	}
-
-	return dev;
-}
-
-static struct android_configuration *alloc_android_config
-						(struct android_dev *dev)
-{
-	struct android_configuration *conf;
-
-	conf = kzalloc(sizeof(*conf), GFP_KERNEL);
-	if (!conf) {
-		pr_err("%s(): Failed to alloc memory for android conf\n",
-			__func__);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	dev->configs_num++;
-	conf->usb_config.label = dev->name;
-	conf->usb_config.unbind = android_unbind_config;
-	conf->usb_config.bConfigurationValue = dev->configs_num;
-
-	INIT_LIST_HEAD(&conf->enabled_functions);
-
-	list_add_tail(&conf->list_item, &dev->configs);
-
-	return conf;
-}
-
-static void free_android_config(struct android_dev *dev,
-			     struct android_configuration *conf)
-{
-	list_del(&conf->list_item);
-	dev->configs_num--;
-	kfree(conf);
-}
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 
 #ifdef CONFIG_USBIF_COMPLIANCE
 
@@ -3684,71 +2786,6 @@ module_exit(cleanup);
 #else
 static int __init init(void)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *android_dev;
-	int err;
-
-	INIT_LIST_HEAD(&android_dev_list);
-	android_dev_count = 0;
-
-	if (!android_class) {
-	android_class = class_create(THIS_MODULE, "android_usb");
-
-	if (IS_ERR(android_class))
-		return PTR_ERR(android_class);
-	}
-
-	android_dev = kzalloc(sizeof(*android_dev), GFP_KERNEL);
-	if (!android_dev) {
-		pr_err("%s(): Failed to alloc memory for android_dev\n",
-			__func__);
-		err = -ENOMEM;
-		goto err_alloc;
-	}
-
-	android_dev->disable_depth = 1;
-	android_dev->functions = supported_functions;
-	android_dev->configs_num = 0;
-	INIT_LIST_HEAD(&android_dev->configs);
-	INIT_WORK(&android_dev->work, android_work);
-	mutex_init(&android_dev->mutex);
-
-	list_add_tail(&android_dev->list_item, &android_dev_list);
-	android_dev_count++;
-
-	err = android_create_device(android_dev);
-	if (err) {
-		pr_err("%s(): android_create_device failed\n", __func__);
-		goto err_dev;
-
-	}
-
-	err =  usb_composite_probe(&android_usb_driver);
-	if (err) {
-		pr_err("%s(): Failed to register android "
-				 "composite driver\n", __func__);
-		goto err_probe;
-	}
-
-	/* HACK: exchange composite's setup with ours */
-	composite_setup_func = android_usb_driver.gadget_driver.setup;
-	android_usb_driver.gadget_driver.setup = android_setup;
-
-	return err;
-err_probe:
-	android_destroy_device(android_dev);
-err_dev:
-	list_del(&android_dev->list_item);
-	android_dev_count--;
-	kfree(android_dev);
-err_alloc:
-	if (list_empty(&android_dev_list)) {
-		class_destroy(android_class);
-		android_class = NULL;
-	}
-	return err;
-#else
 	struct android_dev *dev;
 	int err;
 
@@ -3795,41 +2832,16 @@ err_create:
 err_dev:
 	class_destroy(android_class);
 	return err;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 late_initcall(init);
 
 static void __exit cleanup(void)
 {
-// + LGE USB patch. By Ted Li. 2016-09-20
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	struct android_dev *dev = NULL;
-	/* Find the android dev from the list */
-	list_for_each_entry(dev, &android_dev_list, list_item) {
-		if(!dev->cdev)
-			break;
-	}
-
-	if (dev) {
-		android_destroy_device(dev);
-		list_del(&dev->list_item);
-		android_dev_count--;
-		kfree(dev);
-	}
-
-	if (list_empty(&android_dev_list)) {
-		class_destroy(android_class);
-		android_class = NULL;
-		usb_composite_unregister(&android_usb_driver);
-	}
-#else
 	usb_composite_unregister(&android_usb_driver);
 	class_destroy(android_class);
 	kfree(_android_dev);
 	_android_dev = NULL;
-#endif
-// - LGE USB patch. By Ted Li. 2016-09-20
 }
 module_exit(cleanup);
 #endif
+

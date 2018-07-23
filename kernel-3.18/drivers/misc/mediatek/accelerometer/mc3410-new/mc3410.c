@@ -2862,7 +2862,9 @@ static long mc3xxx_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
-
+		
+		/*
+		 * Everything are the same with the above case?
 	case GSENSOR_IOCTL_READ_OFFSET:
 		GSE_LOG("fwq GSENSOR_IOCTL_READ_OFFSET\n");
 		data = (void __user *) arg;
@@ -2876,6 +2878,8 @@ static long mc3xxx_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+
+		*/
 
 	case GSENSOR_IOCTL_READ_RAW_DATA:
 		GSE_LOG("fwq GSENSOR_IOCTL_READ_RAW_DATA\n");

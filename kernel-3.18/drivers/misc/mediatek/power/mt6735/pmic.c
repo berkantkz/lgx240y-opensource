@@ -93,8 +93,6 @@
 
 #include <mt-plat/aee.h>
 
-#include "mt_devinfo.h"
-
 /*****************************************************************************
  * PMIC extern variable
  ******************************************************************************/
@@ -542,66 +540,12 @@ EXPORT_SYMBOL(upmu_interrupt_chrdet_int_en);
 /*****************************************************************************
  * PMIC charger detection
  ******************************************************************************/
- //<2016/12/4-nickygao, [LV3][MISC][COMMON][BSP][][]Detect adapter by RT9536H
- #if 1
- unsigned char rt9536_check_charger_status(void);
-
- static unsigned int custom_charging_get_charger_det_status(void)
-{
-    unsigned int val = 0;
-
-    val = pmic_get_register_value(PMIC_RGS_CHRDET);
-
-    //<2016/09/15-nickygao, [LV3][FEATURE][COMMON][BSP][][]Detect charger status
-    if (val == 0)   //adapter non-exists
-    {
-        if (rt9536_check_charger_status() == 0)
-	{
-	    //that val is 0 indicates that adapter non-exists
-	    val = 0;
-       }
-	else    //adapter exists
-	{
-	    //That val is 1 indicates that adapter exists
-	    val = 1;
-	}
-    }
-    else    //adapter exist
-    {
-        val = 1;
-    }
-
-    return val;
-}
-#endif
-//<2016/12/4-nickygao
 unsigned int upmu_get_rgs_chrdet(void)
 {
 	unsigned int val = 0;
-	//<2016/12/22-nickygao, [LV3][MISC][COMMON][BSP][][]Detect adapter by RT9536H
-	#if 0
-	static int check_one_time = 0;
-	#endif
-	//<2016/12/22-nickygao
 
 	/*val = mt6325_upmu_get_rgs_chrdet(); */
-	//<2016/12/22-nickygao, [LV3][MISC][COMMON][BSP][][]Detect adapter by RT9536H
-	#if 1
-	val = custom_charging_get_charger_det_status();
-	//val = pmic_get_register_value(PMIC_RGS_CHRDET);
-	#else
-	if (check_one_time == 0)  
-	{	    
-	    val = custom_charging_get_charger_det_status();
-	    check_one_time = 1;
-	}
-       else
-       {
-	    val = pmic_get_register_value(PMIC_RGS_CHRDET);
-       }
-	#endif
-
-	//<2016/12/22-nickygao
+	val = pmic_get_register_value(PMIC_RGS_CHRDET);
 	PMICLOG("[upmu_get_rgs_chrdet] CHRDET status = %d\n", val);
 
 	return val;
@@ -3177,15 +3121,8 @@ void homekey_int_handler_r(void)
 
 void chrdet_int_handler(void)
 {
-       //<2016/12/4-nickygao, [LV3][MISC][COMMON][BSP][][]Detect adapter by RT9536H
-       #if 1
 	PMICLOG("[chrdet_int_handler]CHRDET status = %d....\n",
 		pmic_get_register_value(PMIC_RGS_CHRDET));
-	#else
-	PMICLOG("[chrdet_int_handler]CHRDET status = %d....\n",
-		/* pmic_get_register_value(PMIC_RGS_CHRDET) */custom_charging_get_charger_det_status());
-	#endif
-	//<2016/12/4-nickygao
 
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
 	if (!upmu_get_rgs_chrdet()) {
@@ -3237,8 +3174,7 @@ struct wake_lock pmicThread_lock;
 void wake_up_pmic(void)
 {
 	PMICLOG("[wake_up_pmic]\r\n");
-	if (pmic_thread_handle != NULL)
-		wake_up_process(pmic_thread_handle);
+	wake_up_process(pmic_thread_handle);
 
 #if !defined CONFIG_HAS_WAKELOCKS
 	__pm_stay_awake(&pmicThread_lock);
@@ -3259,8 +3195,8 @@ void mt_pmic_eint_irq(void)
 irqreturn_t mt_pmic_eint_irq(int irq, void *desc)
 {
 	/*PMICLOG("[mt_pmic_eint_irq] receive interrupt\n"); */
-	disable_irq_nosync(irq);
 	wake_up_pmic();
+	disable_irq_nosync(irq);
 	return IRQ_HANDLED;
 }
 #endif
@@ -3381,7 +3317,6 @@ void PMIC_EINT_SETTING(void)
 		if (ret > 0)
 			PMICLOG("EINT IRQ LINENNOT AVAILABLE\n");
 		/*enable_irq(g_pmic_irq); */
-		disable_irq(g_pmic_irq);
 	} else
 		PMICLOG("can't find compatible node\n");
 #endif
@@ -3759,44 +3694,6 @@ unsigned short is_battery_remove_pmic(void)
 
 /*extern bool crystal_exist_status(void);*/
 
-void pmic_setting_for_co_tsx(void)
-{
-	unsigned int ret = 0;
-	unsigned int devinfo = get_devinfo_with_index(47) >> 25;
-
-	switch (devinfo) {
-	case 0x41:
-	case 0x42:
-	case 0x43:
-	/* Denali-1+ MT6737T */
-
-	case 0x49:
-	case 0x4A:
-	case 0x4B:
-	/* Denali-2+ MT6737M */
-
-	case 0x51:
-	case 0x52:
-	case 0x53:
-	/* Denali-2+ MT6737 */
-		ret = pmic_config_interface(0x14, 0x1, 0x1, 5);
-		ret = pmic_config_interface(0x14, 0x1, 0x1, 7);
-		ret = pmic_config_interface(0x25A, 0x0, 0x1, 10);
-		ret = pmic_config_interface(0x278, 0x0, 0x1, 11);
-		ret = pmic_config_interface(0xF08, 0xC, 0x3FF, 0);
-		ret = pmic_config_interface(0xF08, 0x0, 0x1, 15);
-		ret = pmic_config_interface(0xF0E, 0xC, 0x3FF, 0);
-		ret = pmic_config_interface(0xF0E, 0x1, 0x1, 15);
-		ret = pmic_config_interface(0xF12, 0x0, 0x1, 0);
-		ret = pmic_config_interface(0xF12, 0x0, 0x1, 1);
-		ret = pmic_config_interface(0xF12, 0x1, 0x1, 2);
-		PMICLOG("[Kernel_PMIC_INIT_SETTING_V1] setting for co-TSX\n");
-		break;
-	default:
-		break;
-	}
-}
-
 void PMIC_INIT_SETTING_V1(void)
 {
 	unsigned int chip_version = 0;
@@ -3807,9 +3704,7 @@ void PMIC_INIT_SETTING_V1(void)
 	is_battery_remove = !pmic_get_register_value(PMIC_STRUP_PWROFF_SEQ_EN);
 	is_wdt_reboot_pmic = pmic_get_register_value(PMIC_WDTRSTB_STATUS);
 	pmic_set_register_value(PMIC_WDTRSTB_STATUS_CLR, 1);
-	//<2016/12/4-nickygao, [LV3][MISC][COMMON][BSP][][]Reduce RG_VCDT_LV_VTH as 4.2V
-	ret = pmic_config_interface(0xF4A, 0x0, 0xF, 0);
-	//<2016/12/4-nickygao
+
 
 	/*--------------------------------------------------------*/
 
@@ -3966,6 +3861,8 @@ void PMIC_INIT_SETTING_V1(void)
 		ret = pmic_config_interface(0xC, 0x1, 0x1, 12);
 		ret = pmic_config_interface(0xC, 0x1, 0x1, 13);
 		ret = pmic_config_interface(0x10, 0x1, 0x1, 5);
+		ret = pmic_config_interface(0x14, 0x1, 0x1, 5);
+		ret = pmic_config_interface(0x14, 0x1, 0x1, 7);
 		ret = pmic_config_interface(0x16, 0x1, 0x1, 0);
 		ret = pmic_config_interface(0x16, 0x1, 0x1, 1);
 		ret = pmic_config_interface(0x1E, 0x0, 0x1, 11);
@@ -3981,6 +3878,8 @@ void PMIC_INIT_SETTING_V1(void)
 		ret = pmic_config_interface(0x248, 0x1, 0x1, 13);
 		ret = pmic_config_interface(0x248, 0x1, 0x1, 14);
 		ret = pmic_config_interface(0x25A, 0x1, 0x1, 9);
+		ret = pmic_config_interface(0x25A, 0x0, 0x1, 10);
+		ret = pmic_config_interface(0x278, 0x0, 0x1, 11);
 		ret = pmic_config_interface(0x40E, 0x0, 0x3, 2);
 		ret = pmic_config_interface(0x412, 0x0, 0x3, 2);
 		ret = pmic_config_interface(0x420, 0x1, 0x1, 4);
@@ -4070,6 +3969,13 @@ void PMIC_INIT_SETTING_V1(void)
 		ret = pmic_config_interface(0xEA6, 0x1, 0x3, 4);
 		ret = pmic_config_interface(0xEA6, 0x1, 0x3, 6);
 		ret = pmic_config_interface(0xEB8, 0x1, 0x1, 14);
+		ret = pmic_config_interface(0xF08, 0xC, 0x3FF, 0);
+		ret = pmic_config_interface(0xF08, 0x0, 0x1, 15);
+		ret = pmic_config_interface(0xF0E, 0xC, 0x3FF, 0);
+		ret = pmic_config_interface(0xF0E, 0x1, 0x1, 15);
+		ret = pmic_config_interface(0xF12, 0x0, 0x1, 0);
+		ret = pmic_config_interface(0xF12, 0x0, 0x1, 1);
+		ret = pmic_config_interface(0xF12, 0x1, 0x1, 2);
 		ret = pmic_config_interface(0xF4A, 0xB, 0xF, 4);
 		ret = pmic_config_interface(0xF54, 0x0, 0x7, 1);
 		ret = pmic_config_interface(0xF62, 0x3, 0xF, 0);
@@ -4079,8 +3985,6 @@ void PMIC_INIT_SETTING_V1(void)
 		ret = pmic_config_interface(0xF7A, 0x1, 0x1, 2);
 		ret = pmic_config_interface(0xF7A, 0x1, 0x1, 6);
 		ret = pmic_config_interface(0xF7A, 0x1, 0x1, 7);
-
-		pmic_setting_for_co_tsx();
 	}
 	/*--------------------------------------------------------*/
 
@@ -4848,9 +4752,6 @@ static int pmic_mt_probe(struct platform_device *dev)
 	PMICLOG("[PMIC_EINT_SETTING] disable when CONFIG_MTK_FPGA\n");
 #else
 	/*PMIC Interrupt Service */
-	PMIC_EINT_SETTING();
-	PMICLOG("[PMIC_EINT_SETTING] Done\n");
-
 	pmic_thread_handle = kthread_create(pmic_thread_kthread, (void *)NULL, "pmic_thread");
 	if (IS_ERR(pmic_thread_handle)) {
 		pmic_thread_handle = NULL;
@@ -4859,6 +4760,9 @@ static int pmic_mt_probe(struct platform_device *dev)
 		wake_up_process(pmic_thread_handle);
 		PMICLOG("[pmic_thread_kthread_mt6325] kthread_create Done\n");
 	}
+
+	PMIC_EINT_SETTING();
+	PMICLOG("[PMIC_EINT_SETTING] Done\n");
 #endif
 
 
@@ -5196,3 +5100,4 @@ module_exit(pmic_mt_exit);
 MODULE_AUTHOR("Argus Lin");
 MODULE_DESCRIPTION("MT PMIC Device Driver");
 MODULE_LICENSE("GPL");
+
